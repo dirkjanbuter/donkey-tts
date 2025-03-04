@@ -90,7 +90,7 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
     curl --connect-timeout 30 --max-time 0 -X POST -F "text=Welcome to Donkey TTS!" -F "language=en" -F "speaker_id=yvonta" http://127.0.0.1:8979/tts_stream/ | mpg123 -q -
     ```
 
-    This wil stream an play the text in realtime
+    This wil stream and play the text in realtime
 
 
 ## Speaker Management
