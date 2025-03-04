@@ -78,7 +78,7 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
     -   `language`: The language of the text.
     -   `speaker_id`: The ID of the speaker (filename without `.wav`).
 
-    Example `curl` command:
+    Example `curl` commands:
 
     ```bash
     curl -X POST -F "text=Hello, this is a test." -F "language=en" -F "speaker_id=yvonta" http://127.0.0.1:8979/tts_stream/ > output.mp3
