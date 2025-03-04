@@ -23,7 +23,4 @@ RUN chmod u+x ./run.sh
 
 EXPOSE 8979
 
-RUN useradd app
-USER app
-
 CMD ["bash", "run.sh"]
