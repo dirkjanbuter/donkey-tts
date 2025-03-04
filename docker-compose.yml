@@ -4,7 +4,7 @@ services:
     runtime: nvidia
     ports:
       - "8979:8979"
-   volumes:
+    volumes:
       - ./speakers:/root/speakers  # Mount speakers to /root/speakers
       - ./model:/root/model      # Mount model to /root/model
     deploy:
