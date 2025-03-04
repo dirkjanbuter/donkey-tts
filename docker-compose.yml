@@ -5,8 +5,8 @@ services:
     ports:
       - "8979:8979"
     volumes:
-      - ./speakers:/root/speakers  # Mount speakers to /root/speakers
-      - ./model:/root/model      # Mount model to /root/model
+      - ./speakers:/usr/local/app/speakers  # Mount speakers to /root/speakers
+      - ./model:/usr/local/app/model      # Mount model to /root/model
     deploy:
       resources:
         reservations:
