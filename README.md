@@ -36,8 +36,8 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 2.  **Create a virtual environment (recommended):**
 
     ```bash
-    sudo apt install python3.9 python3.9-venv # On debian/ ubuntu
-    python3.9 -m venv venv
+    sudo apt install python3.10 python3.10-venv # On debian/ ubuntu
+    python3.10 -m venv venv
     source venv/bin/activate  # On Linux/macOS
     venv\Scripts\activate  # On Windows
     ```
@@ -45,7 +45,8 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 3.  **Install dependencies:**
 
     ```bash
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 # For GPU
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu # For CPU
     pip install -r requirements.txt
     ```
 
