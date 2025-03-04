@@ -4,6 +4,7 @@ WORKDIR /usr/local/app
 
 RUN apt-get update && \
     apt-get install -y \
+    ffmpeg \
     libsndfile1 \
     mecab \
     mecab-ipadic-utf8 \
