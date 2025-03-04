@@ -36,7 +36,8 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 2.  **Create a virtual environment (recommended):**
 
     ```bash
-    python -m venv venv
+    sudo apt install python3.9 python3.9-venv # On debian/ ubuntu
+    python3.9 -m venv venv
     source venv/bin/activate  # On Linux/macOS
     venv\Scripts\activate  # On Windows
     ```
@@ -44,7 +45,8 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 3.  **Install dependencies:**
 
     ```bash
-    pip install fastapi uvicorn pydantic TTS soundfile pydub transformers torch
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+    pip install -r requirements.txt
     ```
 
 4.  **Download the XTTS model:**
