@@ -80,7 +80,7 @@ networkx==2.8.8
 nltk==3.9.1
 num2words==0.5.14
 numba==0.58.1
-numpy==1.20.3
+numpy>=1.20.3
 nvidia-cublas-cu11==11.11.3.6
 nvidia-cuda-cupti-cu11==11.8.87
 nvidia-cuda-nvrtc-cu11==11.8.89
