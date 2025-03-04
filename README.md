@@ -29,8 +29,8 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 1.  **Clone the repository:**
 
     ```bash
-    git clone [repository URL]
-    cd [repository directory]
+    git clone https://github.com/dirkjanbuter/donkey-tts.git
+    cd donkey-tts
     ```
 
 2.  **Create a virtual environment (recommended):**
