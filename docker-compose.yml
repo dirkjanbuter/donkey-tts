@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    runtime: nvidia
+    ports:
+      - "8979:8979"
+    volumes:
+      - ./speakers:/usr/local/app/speakers
+      - ./model:/usr/local/app/model
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
