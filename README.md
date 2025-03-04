@@ -14,7 +14,7 @@ This repository provides a FastAPI-based service for real-time text-to-speech (T
 
 ## Prerequisites
 
--   Python 3.8
+-   Python 3.10
 -   CUDA-enabled GPU (recommended for performance)
 -   PyTorch
 -   Coqui TTS (`TTS`)
