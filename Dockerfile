@@ -1,18 +1,29 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9-slim
+FROM ubuntu:22.04
 
 WORKDIR /usr/local/app
 
+RUN apt-get update && \
+    apt-get install -y \
+    libsndfile1 \
+    mecab \
+    mecab-ipadic-utf8 \
+    libmecab-dev \
+    python3.10 \
+    python3.10-venv
+
 COPY requirements.txt ./
+COPY install.docker ./install.sh
 
-RUN apt-get update
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-RUN pip install -r requirements.txt
+RUN chmod u+x ./install.sh
+RUN bash ./install.sh
 
-COPY . .
+COPY main.py ./
+COPY run.sh ./
+RUN chmod u+x ./run.sh
 
 EXPOSE 8979
 
 RUN useradd app
 USER app
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8979"]
+CMD ["bash", "run.sh"]
