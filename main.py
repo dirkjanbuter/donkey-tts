@@ -92,7 +92,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
         if paragraph_index < len(paragraphs_and_sentences) - 1:
             paragraph_silence = AudioSegment.silent(duration=400)
             opus_silence_buffer = io.BytesIO()
-            paragraph_silence.export(opus_silence_buffer, format="ogg", codec="libopus", parameters=["-ar", "48000"])
+            paragraph_silence.export(opus_silence_buffer, format="ogg", codec="libopus", parameters=["-ar", "24000"])
             yield opus_silence_buffer.getvalue()
 
     if audio_segments:
@@ -100,11 +100,11 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
         combined_audio = (combined_audio * 32767).astype(np.int16)
 
         with io.BytesIO() as wav_buffer:
-            sf.write(wav_buffer, combined_audio, 48000, format='wav')
+            sf.write(wav_buffer, combined_audio, 24000, format='wav')
             wav_buffer.seek(0)
             audio_segment = AudioSegment.from_wav(wav_buffer)
             opus_buffer = io.BytesIO()
-            audio_segment.export(opus_buffer, format="ogg", codec="libopus", parameters=["-ar", "48000"])
+            audio_segment.export(opus_buffer, format="ogg", codec="libopus", parameters=["-ar", "24000"])
             yield opus_buffer.getvalue()
 
 def overlap_add(audio_segments, overlap_samples=200):
