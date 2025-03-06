@@ -96,7 +96,8 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             yield opus_silence_buffer.getvalue()
 
     if audio_segments:
-        combined_audio = overlap_add(audio_segments)
+        # Vervang overlap_add door adaptive_overlap_add
+        combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
         combined_audio = (combined_audio * 32767).astype(np.int16)
 
         with io.BytesIO() as wav_buffer:
@@ -120,6 +121,37 @@ def overlap_add(audio_segments, overlap_samples=200):
         if i > 0:
             overlap_start = start
             overlap_end = overlap_start + overlap_samples
+            result[overlap_start:overlap_end] += segment[:overlap_samples] * window[:overlap_samples]
+
+        result[start + (overlap_samples if i > 0 else 0):end] += segment[overlap_samples if i > 0 else 0:]
+
+    return result
+
+def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
+    combined_audio = np.concatenate(audio_segments)
+    result = np.zeros_like(combined_audio)
+    hop_length = len(audio_segments[0]) - max_overlap_samples
+
+    for i, segment in enumerate(audio_segments):
+        start = i * hop_length
+        end = start + len(segment)
+
+        if i > 0:
+            # Bereken de energie aan het einde van het vorige segment
+            previous_segment_end_energy = np.mean(np.abs(audio_segments[i - 1][-max_overlap_samples:]))
+
+            # Bereken de energie aan het begin van het huidige segment
+            current_segment_start_energy = np.mean(np.abs(segment[:max_overlap_samples]))
+
+            # Bereken de optimale overlap op basis van de energie
+            overlap_samples = int(min_overlap_samples + (max_overlap_samples - min_overlap_samples) * (previous_segment_end_energy + current_segment_start_energy) / 2)
+
+            # Zorg ervoor dat de overlap binnen de grenzen blijft
+            overlap_samples = min(max_overlap_samples, max(min_overlap_samples, overlap_samples))
+
+            overlap_start = start
+            overlap_end = overlap_start + overlap_samples
+            window = librosa.filters.get_window("hann", overlap_samples * 2)
             result[overlap_start:overlap_end] += segment[:overlap_samples] * window[:overlap_samples]
 
         result[start + (overlap_samples if i > 0 else 0):end] += segment[overlap_samples if i > 0 else 0:]
