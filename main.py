@@ -47,20 +47,11 @@ except Exception as e:
     print(f"Fout bij het laden van het model: {e}")
     raise HTTPException(status_code=500, detail=f"Model laden mislukt: {str(e)}")
 
-def split_text_into_paragraphs_and_sentences(text):
-    paragraphs = text.split('\n\n')
-    result = []
-    sentence_endings = re.compile(r'(?<=[.!?])\s+')
-    for paragraph in paragraphs:
-        sentences = sentence_endings.split(paragraph)
-        result.append(sentences)
-    return result
-
 class TTSRequest(BaseModel):
     text: str
     language: str
 
-    def split_text_into_paragraphs_and_sentences(text):
+def split_text_into_paragraphs_and_sentences(text):
     paragraphs = text.split('\n\n')
     result = []
     sentence_endings = re.compile(r'(?<=[.!?])\s+')
