@@ -21,7 +21,6 @@ import asyncio
 from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
-import librosa
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -99,11 +98,17 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
                         wav_file.setsampwidth(2)
                         wav_file.setframerate(24000)
                         wav_file.writeframes(audio_bytes)
-                    wav_buffer.seek(0)
-                    audio_segment = AudioSegment.from_wav(wav_buffer)
+                    wav_audio = AudioSegment.from_wav(wav_buffer)
+                    wav_audio = add_padding(wav_audio, 200) #Add 30 miliseconds of silence.
                     mp3_buffer = io.BytesIO()
-                    audio_segment.export(mp3_buffer, format="mp3", bitrate="320k", parameters=["-ar", "48000"])
+                    wav_audio.export(mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
                     yield mp3_buffer.getvalue()
+
+                if sentence_index < len(sentences) - 1:
+                    silence = AudioSegment.silent(duration=0)
+                    silence_mp3_buffer = io.BytesIO()
+                    silence.export(silence_mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
+                    yield silence_mp3_buffer.getvalue()
 
             except Exception as e:
                 logger.error(f"Error processing audio chunk: {e}", exc_info=True)
