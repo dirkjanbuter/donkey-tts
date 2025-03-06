@@ -51,7 +51,7 @@ class TTSRequest(BaseModel):
     text: str
     language: str
 
-def split_text_into_paragraphs_and_sentences(text):
+    def split_text_into_paragraphs_and_sentences(text):
     paragraphs = text.split('\n\n')
     result = []
     sentence_endings = re.compile(r'(?<=[.!?])\s+')
@@ -71,51 +71,82 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
     return chunks
 
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, model=None, config=None):
-    try:
-        max_text_length = config.model_args.gpt_max_text_tokens #Get the max text length from the config.
-        inputs = tokenizer.encode(text, lang=language)
+    audio_segments = []
+    paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
+    for paragraph_index, sentences in enumerate(paragraphs_and_sentences):
+        for sentence_index, sentence in enumerate(sentences):
+            try:
+                max_text_length = config.model_args.gpt_max_text_tokens
+                inputs = tokenizer.encode(sentence, lang=language)
 
-        # Pad the input sequence
-        padding_length = max_text_length - len(inputs)
-        if padding_length > 0:
-            inputs = inputs + [tokenizer.pad_token_id] * padding_length
-        elif padding_length < 0:
-            inputs = inputs[:max_text_length] #truncate the input if it is too long.
+                padding_length = max_text_length - len(inputs)
+                if padding_length > 0:
+                    inputs = inputs + [tokenizer.pad_token_id] * padding_length
+                elif padding_length < 0:
+                    inputs = inputs[:max_text_length]
 
-        input_ids = torch.tensor(inputs).unsqueeze(0).cuda()
+                input_ids = torch.tensor(inputs).unsqueeze(0).cuda()
+                attention_mask = torch.ones_like(input_ids).cuda()
 
-        # Create the attention mask
-        attention_mask = torch.ones_like(input_ids).cuda()
+                print(f"Lengte van input_ids: {input_ids.shape[1]}")
+                print(f"Input IDs shape: {input_ids.shape}")
+                print(f"Attention mask shape: {attention_mask.shape}")
+                print(f"Speaker wav file path: {speaker_wav_path}")
+                audio, sr = librosa.load(speaker_wav_path, sr=48000)
+                print(f"Speaker wav file shape: {audio.shape}, sample rate: {sr}")
 
-        print(f"Input IDs shape: {input_ids.shape}")
-        print(f"Attention mask shape: {attention_mask.shape}")
-        print(f"Speaker wav file path: {speaker_wav_path}")
-        audio, sr = librosa.load(speaker_wav_path, sr=48000)
-        print(f"Speaker wav file shape: {audio.shape}, sample rate: {sr}")
+                outputs = model.synthesize(
+                    sentence,
+                    config,
+                    speaker_wav=speaker_wav_path,
+                    language=language,
+                    attention_mask=attention_mask
+                )
+                audio_data = outputs["wav"]
+                if audio_data.size > 0:
+                    audio_segments.append(audio_data)
+                else:
+                    logger.warning(f"Leeg audio segment gegenereerd voor zin: {sentence}")
+            except AttributeError as e:
+                logger.error(f"Error processing audio chunk: {e}", exc_info=True)
+                yield b""
+            except Exception as e:
+                logger.error(f"General Error processing audio chunk: {e}", exc_info=True)
+                yield b""
 
-        outputs = model.synthesize(
-            text,
-            config,
-            speaker_wav=speaker_wav_path,
-            language=language,
-            attention_mask=attention_mask
-        )
-        # ... rest of your code ...
-    except Exception as e:
-        logger.error(f"Error processing audio chunk: {e}", exc_info=True)
-        yield b""
+        if paragraph_index < len(paragraphs_and_sentences) - 1:
+            paragraph_silence = AudioSegment.silent(duration=400)
+            paragraph_silence_mp3_buffer = io.BytesIO()
+            paragraph_silence.export(paragraph_silence_mp3_buffer, format="mp3", bitrate="320k", parameters=["-ar", "48000"])
+            yield paragraph_silence_mp3_buffer.getvalue()
+
+    if audio_segments:
+        combined_audio = overlap_add(audio_segments)
+        if combined_audio is not None:
+            combined_audio = (combined_audio * 32767).astype(np.int16).tobytes()
+
+            with io.BytesIO() as wav_buffer:
+                with wave.open(wav_buffer, 'wb') as wav_file:
+                    wav_file.setnchannels(1)
+                    wav_file.setsampwidth(2)
+                    wav_file.setframerate(48000)
+                    wav_file.writeframes(combined_audio)
+                wav_buffer.seek(0)
+                audio_segment = AudioSegment.from_wav(wav_buffer)
+                mp3_buffer = io.BytesIO()
+                audio_segment.export(mp3_buffer, format="mp3", bitrate="320k", parameters=["-ar", "48000"])
+                yield mp3_buffer.getvalue()
 
 def overlap_add(audio_segments, overlap_samples=200):
     if not audio_segments:
-        return None  # Return None if audio_segments is empty
-
+        return None
     combined_audio = np.concatenate(audio_segments)
     result = np.zeros_like(combined_audio)
     hop_length = len(audio_segments[0]) - overlap_samples
     window = librosa.filters.get_window("hann", overlap_samples * 2)
 
     for i, segment in enumerate(audio_segments):
-        if segment.size == 0: # controleer of segment niet leeg is.
+        if segment.size == 0:
             continue
         start = i * hop_length
         end = start + len(segment)
@@ -142,7 +173,7 @@ async def text_to_speech_stream(
         if not os.path.exists(speaker_wav_path):
             raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found")
 
-        audio_stream = generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer)
+        audio_stream = generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer, model=model, config=config)
         return StreamingResponse(audio_stream, media_type="audio/mpeg")
 
     except Exception as e:
