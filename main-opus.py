@@ -91,9 +91,9 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
 
         if paragraph_index < len(paragraphs_and_sentences) - 1:
             paragraph_silence = AudioSegment.silent(duration=400)
-            mp3_silence_buffer = io.BytesIO()
-            paragraph_silence.export(mp3_silence_buffer, format="mp3")
-            yield mp3_silence_buffer.getvalue()
+            opus_silence_buffer = io.BytesIO()
+            paragraph_silence.export(opus_silence_buffer, format="ogg", codec="libopus", parameters=["-ar", "24000"])
+            yield opus_silence_buffer.getvalue()
 
     if audio_segments:
         # Vervang overlap_add door adaptive_overlap_add
@@ -104,9 +104,9 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             sf.write(wav_buffer, combined_audio, 24000, format='wav')
             wav_buffer.seek(0)
             audio_segment = AudioSegment.from_wav(wav_buffer)
-            mp3_buffer = io.BytesIO()
-            audio_segment.export(mp3_buffer, format="mp3")
-            yield mp3_buffer.getvalue()
+            opus_buffer = io.BytesIO()
+            audio_segment.export(opus_buffer, format="ogg", codec="libopus", parameters=["-ar", "24000"])
+            yield opus_buffer.getvalue()
 
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
     if not audio_segments:
@@ -132,7 +132,7 @@ def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_sa
 
             # Calculate adaptive overlap based on signal energy
             overlap_samples = int(min_overlap_samples + (max_overlap_samples - min_overlap_samples) *
-                                   (1.0 - (previous_segment_end_energy + current_segment_start_energy) / 2))
+                                 (1.0 - (previous_segment_end_energy + current_segment_start_energy) / 2))
 
             # Ensure overlap stays within bounds
             overlap_samples = min(max_overlap_samples, max(min_overlap_samples, overlap_samples))
@@ -154,6 +154,7 @@ def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_sa
 
     return result
 
+
 @app.post("/tts_stream/")
 async def text_to_speech_stream(
     text: str = Form(...),
@@ -168,7 +169,7 @@ async def text_to_speech_stream(
             raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found")
 
         audio_stream = generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer)
-        return StreamingResponse(audio_stream, media_type="audio/mpeg")
+        return StreamingResponse(audio_stream, media_type="audio/ogg")
 
     except Exception as e:
         logger.error(f"Error in TTS streaming processing: {e}", exc_info=True)
