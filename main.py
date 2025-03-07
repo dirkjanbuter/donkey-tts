@@ -105,7 +105,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             wav_buffer.seek(0)
             audio_segment = AudioSegment.from_wav(wav_buffer)
             mp3_buffer = io.BytesIO()
-            audio_segment.export(mp3_buffer, format="mp3")
+            audio_segment.export(mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
             yield mp3_buffer.getvalue()
 
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
