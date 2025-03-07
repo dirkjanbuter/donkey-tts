@@ -108,55 +108,52 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             audio_segment.export(opus_buffer, format="ogg", codec="libopus", parameters=["-ar", "24000"])
             yield opus_buffer.getvalue()
 
-def overlap_add(audio_segments, overlap_samples=200):
-    combined_audio = np.concatenate(audio_segments)
-    result = np.zeros_like(combined_audio)
-    hop_length = len(audio_segments[0]) - overlap_samples
-    window = librosa.filters.get_window("hann", overlap_samples * 2)
-
-    for i, segment in enumerate(audio_segments):
-        start = i * hop_length
-        end = start + len(segment)
-
-        if i > 0:
-            overlap_start = start
-            overlap_end = overlap_start + overlap_samples
-            result[overlap_start:overlap_end] += segment[:overlap_samples] * window[:overlap_samples]
-
-        result[start + (overlap_samples if i > 0 else 0):end] += segment[overlap_samples if i > 0 else 0:]
-
-    return result
-
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
-    combined_audio = np.concatenate(audio_segments)
-    result = np.zeros_like(combined_audio)
-    hop_length = len(audio_segments[0]) - max_overlap_samples
+    if not audio_segments:
+        return np.array([])
+
+    # Calculate total length needed for output
+    total_length = sum(len(segment) for segment in audio_segments)
+    # Subtract potential overlaps
+    total_length -= min_overlap_samples * (len(audio_segments) - 1)
+
+    result = np.zeros(total_length)
+    current_position = 0
 
     for i, segment in enumerate(audio_segments):
-        start = i * hop_length
-        end = start + len(segment)
-
-        if i > 0:
-            # Bereken de energie aan het einde van het vorige segment
+        if i == 0:
+            # First segment goes in directly with no overlap
+            result[:len(segment)] = segment
+            current_position = len(segment)
+        else:
+            # For subsequent segments, create an overlap
             previous_segment_end_energy = np.mean(np.abs(audio_segments[i - 1][-max_overlap_samples:]))
-
-            # Bereken de energie aan het begin van het huidige segment
             current_segment_start_energy = np.mean(np.abs(segment[:max_overlap_samples]))
 
-            # Bereken de optimale overlap op basis van de energie
-            overlap_samples = int(min_overlap_samples + (max_overlap_samples - min_overlap_samples) * (previous_segment_end_energy + current_segment_start_energy) / 2)
+            # Calculate adaptive overlap based on signal energy
+            overlap_samples = int(min_overlap_samples + (max_overlap_samples - min_overlap_samples) *
+                                 (1.0 - (previous_segment_end_energy + current_segment_start_energy) / 2))
 
-            # Zorg ervoor dat de overlap binnen de grenzen blijft
+            # Ensure overlap stays within bounds
             overlap_samples = min(max_overlap_samples, max(min_overlap_samples, overlap_samples))
 
-            overlap_start = start
-            overlap_end = overlap_start + overlap_samples
-            window = librosa.filters.get_window("hann", overlap_samples * 2)
-            result[overlap_start:overlap_end] += segment[:overlap_samples] * window[:overlap_samples]
+            # Create crossfade window
+            window = np.linspace(0, 1, overlap_samples)
 
-        result[start + (overlap_samples if i > 0 else 0):end] += segment[overlap_samples if i > 0 else 0:]
+            # Apply crossfade
+            overlap_start = current_position - overlap_samples
+            result[overlap_start:current_position] = (
+                result[overlap_start:current_position] * (1 - window) +
+                segment[:overlap_samples] * window
+            )
+
+            # Add the rest of the segment
+            end_position = current_position - overlap_samples + len(segment)
+            result[current_position:end_position] = segment[overlap_samples:]
+            current_position = end_position
 
     return result
+
 
 @app.post("/tts_stream/")
 async def text_to_speech_stream(
