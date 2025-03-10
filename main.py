@@ -72,49 +72,60 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
     return chunks
 
 
-async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None):
-      audio_segments = []
-      paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
+async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=4096):
+    """
+    Generates an audio stream from text, language, and speaker, yielding MP3 chunks.
 
-      async def synthesize_sentence(sentence):
-          try:
-              outputs = model.synthesize(
-                  sentence,
-                  config,
-                  speaker_wav=speaker_wav_path,
-                  language=language,
-              )
-              return outputs["wav"]
-          except Exception as e:
-              logger.error(f"Error processing audio chunk: {e}", exc_info=True)
-              return None
+    Changes:
+    - Added chunk_size parameter to control the size of yielded MP3 chunks.
+    - Modified the final MP3 generation to yield chunks of the MP3 data instead of the entire file.
+    """
+    audio_segments = []
+    paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
 
-      for paragraph_index, sentences in enumerate(paragraphs_and_sentences):
-          tasks = [synthesize_sentence(sentence) for sentence in sentences]
-          results = await asyncio.gather(*tasks)
+    async def synthesize_sentence(sentence):
+        try:
+            outputs = model.synthesize(
+                sentence,
+                config,
+                speaker_wav=speaker_wav_path,
+                language=language,
+            )
+            return outputs["wav"]
+        except Exception as e:
+            logger.error(f"Error processing audio chunk: {e}", exc_info=True)
+            return None
 
-          for audio_data in results:
-              if audio_data is not None:
-                  audio_segments.append(audio_data)
+    for paragraph_index, sentences in enumerate(paragraphs_and_sentences):
+        tasks = [synthesize_sentence(sentence) for sentence in sentences]
+        results = await asyncio.gather(*tasks)
 
-          if paragraph_index < len(paragraphs_and_sentences) - 1:
-              paragraph_silence = AudioSegment.silent(duration=400)
-              mp3_silence_buffer = io.BytesIO()
-              paragraph_silence.export(mp3_silence_buffer, format="mp3")
-              yield mp3_silence_buffer.getvalue()
+        for audio_data in results:
+            if audio_data is not None:
+                audio_segments.append(audio_data)
 
-      if audio_segments:
-          combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
-          combined_audio = (combined_audio * 32767).astype(np.int16)
+        if paragraph_index < len(paragraphs_and_sentences) - 1:
+            paragraph_silence = AudioSegment.silent(duration=400)
+            mp3_silence_buffer = io.BytesIO()
+            paragraph_silence.export(mp3_silence_buffer, format="mp3")
+            yield mp3_silence_buffer.getvalue()
 
-          with io.BytesIO() as wav_buffer:
-              sf.write(wav_buffer, combined_audio, 24000, format='wav')
-              wav_buffer.seek(0)
-              audio_segment = AudioSegment.from_wav(wav_buffer)
-              mp3_buffer = io.BytesIO()
-              audio_segment.export(mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
-              yield mp3_buffer.getvalue()
+    if audio_segments:
+        combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
+        combined_audio = (combined_audio * 32767).astype(np.int16)
 
+        with io.BytesIO() as wav_buffer:
+            sf.write(wav_buffer, combined_audio, 24000, format='wav')
+            wav_buffer.seek(0)
+            audio_segment = AudioSegment.from_wav(wav_buffer)
+            mp3_buffer = io.BytesIO()
+            audio_segment.export(mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
+            mp3_buffer.seek(0)
+            while True:
+                chunk = mp3_buffer.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
 
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
     if not audio_segments:
