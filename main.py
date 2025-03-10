@@ -74,11 +74,11 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
 
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=4096):
     """
-    Generates an audio stream from text, language, and speaker, yielding MP3 chunks.
+    Generates an audio stream from text, language, and speaker, yielding MP3 chunks in real-time.
 
     Changes:
     - Added chunk_size parameter to control the size of yielded MP3 chunks.
-    - Modified the final MP3 generation to yield chunks of the MP3 data instead of the entire file.
+    - Modified the MP3 generation to stream chunks as they are created, instead of waiting for the entire file.
     """
     audio_segments = []
     paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
@@ -119,12 +119,9 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             wav_buffer.seek(0)
             audio_segment = AudioSegment.from_wav(wav_buffer)
             mp3_buffer = io.BytesIO()
-            audio_segment.export(mp3_buffer, format="mp3", bitrate="128k", parameters=["-ar", "24000"])
-            mp3_buffer.seek(0)
-            while True:
-                chunk = mp3_buffer.read(chunk_size)
-                if not chunk:
-                    break
+
+            # Stream chunks as they are produced
+            for chunk in audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read_chunks(chunk_size):
                 yield chunk
 
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
