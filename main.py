@@ -72,7 +72,7 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
     return chunks
 
 
-async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=4096):
+async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=32768):
     """
     Generates an audio stream from text, language, and speaker, yielding MP3 chunks in real-time.
 
