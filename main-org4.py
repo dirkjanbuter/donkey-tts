@@ -48,24 +48,6 @@ except Exception as e:
     print(f"Fout bij het laden van het model: {e}")
     raise HTTPException(status_code=500, detail=f"Model laden mislukt: {str(e)}")
 
-# Preload speakers
-preloaded_speakers = {}
-
-def preload_speakers():
-    for filename in os.listdir(SPEAKER_DIR):
-        if filename.endswith(".wav"):
-            speaker_id = filename[:-4]
-            speaker_wav_path = os.path.join(SPEAKER_DIR, filename)
-            try:
-                # Load the audio file (you can add more sophisticated preloading if needed)
-                librosa.load(speaker_wav_path, sr=24000)  # Example: Load using librosa
-                preloaded_speakers[speaker_id] = speaker_wav_path
-                print(f"Speaker '{speaker_id}' preloaded.")
-            except Exception as e:
-                print(f"Failed to preload speaker '{speaker_id}': {e}")
-
-preload_speakers()
-
 class TTSRequest(BaseModel):
     text: str
     language: str
@@ -197,6 +179,47 @@ async def text_to_speech_stream(
 ):
     try:
         print(f"Received TTS streaming request for speaker: {speaker_id}, language: {language}")
-        speaker_wav_path = preloaded_speakers.get(speaker_id)
-        if not speaker_wav_path:
-            raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker
+        speaker_wav_path = os.path.join(SPEAKER_DIR, f"{speaker_id}.wav")
+        if not os.path.exists(speaker_wav_path):
+            raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found")
+
+        audio_stream = generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer)
+        return StreamingResponse(audio_stream, media_type="audio/mpeg")
+
+    except Exception as e:
+        logger.error(f"Error in TTS streaming processing: {e}", exc_info=True)
+        return Response(
+            content=json.dumps({"detail": str(e)}),
+            media_type="application/json",
+            status_code=500,
+        )
+
+@app.get("/list_speakers/")
+async def list_speakers():
+    try:
+        speakers = []
+        for filename in os.listdir(SPEAKER_DIR):
+            if filename.endswith(".wav"):
+                speaker_id = filename[:-4]
+                speakers.append(speaker_id)
+        return {"speakers": speakers}
+    except Exception as e:
+        logger.error(f"Error listing speakers: {e}", exc_info=True)
+        return Response(
+            content=json.dumps({"detail": "Ophalen van sprekerlijst mislukt"}),
+            media_type="application/json",
+            status_code=500,
+        )
+
+@app.post("/upload_speaker/")
+async def upload_speaker(speaker_id: str = Form(...), file: UploadFile = File(...)):
+    try:
+        if not file.filename.endswith(".wav"):
+            raise HTTPException(status_code=400, detail="Invalid file type. Only WAV files are allowed.")
+        speaker_path = os.path.join(SPEAKER_DIR, f"{speaker_id}.wav")
+        with open(speaker_path, "wb") as buffer:
+            buffer.write(await file.read())
+        return {"message": f"Speaker '{speaker_id}' uploaded successfully."}
+    except Exception as e:
+        logger.error(f"Error uploading speaker: {e}", exc_info=True)
+        return Response(content=json.dumps({"detail": str(e)}), media_type="application/json", status_code=500)
