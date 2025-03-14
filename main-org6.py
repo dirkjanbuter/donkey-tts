@@ -105,7 +105,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             logger.error(f"Error processing audio chunk: {e}", exc_info=True)
             return None
 
-    for sentences in paragraphs_and_sentences:
+    for paragraph_index, sentences in enumerate(paragraphs_and_sentences):
         tasks = [synthesize_sentence(sentence) for sentence in sentences]
         results = await asyncio.gather(*tasks)
 
@@ -113,19 +113,24 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             if audio_data is not None:
                 audio_segments.append(audio_data)
 
-        if audio_segments:
-            combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
-            combined_audio = (combined_audio * 32767).astype(np.int16)
+        if paragraph_index < len(paragraphs_and_sentences) - 1:
+            paragraph_silence = AudioSegment.silent(duration=400)
+            mp3_silence_buffer = io.BytesIO()
+            paragraph_silence.export(mp3_silence_buffer, format="mp3")
+            yield mp3_silence_buffer.getvalue()
 
-            with io.BytesIO() as wav_buffer:
-                sf.write(wav_buffer, combined_audio, 24000, format='wav')
-                wav_buffer.seek(0)
-                audio_segment = AudioSegment.from_wav(wav_buffer)
+    if audio_segments:
+        combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
+        combined_audio = (combined_audio * 32767).astype(np.int16)
 
-                for chunk in audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read_chunks(chunk_size):
-                    yield chunk
+        with io.BytesIO() as wav_buffer:
+            sf.write(wav_buffer, combined_audio, 24000, format='wav')
+            wav_buffer.seek(0)
+            audio_segment = AudioSegment.from_wav(wav_buffer)
+            mp3_buffer = io.BytesIO()
 
-            audio_segments = [] # reset audio_segments for next paragraph
+            for chunk in audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read_chunks(chunk_size):
+                yield chunk
 
 def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_samples=400):
     if not audio_segments:
