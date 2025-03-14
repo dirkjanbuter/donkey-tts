@@ -178,7 +178,6 @@ async def text_to_speech_stream(
             raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found.")
 
         async def generate():
-            yield b'\xFF\xFB\x90\x04\x00\x00\x00\x00\x00' # MP3 header
             async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
                 yield chunk
 
