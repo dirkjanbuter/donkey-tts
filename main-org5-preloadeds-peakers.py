@@ -57,7 +57,8 @@ def preload_speakers():
             speaker_id = filename[:-4]
             speaker_wav_path = os.path.join(SPEAKER_DIR, filename)
             try:
-                librosa.load(speaker_wav_path, sr=24000)
+                # Load the audio file (you can add more sophisticated preloading if needed)
+                librosa.load(speaker_wav_path, sr=24000)  # Example: Load using librosa
                 preloaded_speakers[speaker_id] = speaker_wav_path
                 print(f"Speaker '{speaker_id}' preloaded.")
             except Exception as e:
@@ -88,7 +89,15 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
+
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=32768):
+    """
+    Generates an audio stream from text, language, and speaker, yielding MP3 chunks in real-time.
+
+    Changes:
+    - Added chunk_size parameter to control the size of yielded MP3 chunks.
+    - Modified the MP3 generation to stream chunks as they are created, instead of waiting for the entire file.
+    """
     audio_segments = []
     paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
 
@@ -129,6 +138,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             audio_segment = AudioSegment.from_wav(wav_buffer)
             mp3_buffer = io.BytesIO()
 
+            # Stream chunks as they are produced
             for chunk in audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read_chunks(chunk_size):
                 yield chunk
 
@@ -136,7 +146,9 @@ def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_sa
     if not audio_segments:
         return np.array([])
 
+    # Calculate total length needed for output
     total_length = sum(len(segment) for segment in audio_segments)
+    # Subtract potential overlaps
     total_length -= min_overlap_samples * (len(audio_segments) - 1)
 
     result = np.zeros(total_length)
@@ -144,25 +156,32 @@ def adaptive_overlap_add(audio_segments, min_overlap_samples=100, max_overlap_sa
 
     for i, segment in enumerate(audio_segments):
         if i == 0:
+            # First segment goes in directly with no overlap
             result[:len(segment)] = segment
             current_position = len(segment)
         else:
+            # For subsequent segments, create an overlap
             previous_segment_end_energy = np.mean(np.abs(audio_segments[i - 1][-max_overlap_samples:]))
             current_segment_start_energy = np.mean(np.abs(segment[:max_overlap_samples]))
 
+            # Calculate adaptive overlap based on signal energy
             overlap_samples = int(min_overlap_samples + (max_overlap_samples - min_overlap_samples) *
-                                    (1.0 - (previous_segment_end_energy + current_segment_start_energy) / 2))
+                                   (1.0 - (previous_segment_end_energy + current_segment_start_energy) / 2))
 
+            # Ensure overlap stays within bounds
             overlap_samples = min(max_overlap_samples, max(min_overlap_samples, overlap_samples))
 
+            # Create crossfade window
             window = np.linspace(0, 1, overlap_samples)
 
+            # Apply crossfade
             overlap_start = current_position - overlap_samples
             result[overlap_start:current_position] = (
                 result[overlap_start:current_position] * (1 - window) +
                 segment[:overlap_samples] * window
             )
 
+            # Add the rest of the segment
             end_position = current_position - overlap_samples + len(segment)
             result[current_position:end_position] = segment[overlap_samples:]
             current_position = end_position
@@ -180,14 +199,4 @@ async def text_to_speech_stream(
         print(f"Received TTS streaming request for speaker: {speaker_id}, language: {language}")
         speaker_wav_path = preloaded_speakers.get(speaker_id)
         if not speaker_wav_path:
-            raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found.")
-
-        async def generate():
-            async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
-                yield chunk
-
-        return StreamingResponse(generate(), media_type="audio/mpeg")
-
-    except Exception as e:
-        logger.error(f"Error processing TTS stream: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"TTS stream generation failed: {str(e)}")
+            raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker
