@@ -122,8 +122,9 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
                 wav_buffer.seek(0)
                 audio_segment = AudioSegment.from_wav(wav_buffer)
 
-                for chunk in audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read_chunks(chunk_size):
-                    yield chunk
+                mp3_data = audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read()
+                for i in range(0, len(mp3_data), chunk_size):
+                    yield mp3_data[i:i + chunk_size]
 
             audio_segments = [] # reset audio_segments for next paragraph
 
