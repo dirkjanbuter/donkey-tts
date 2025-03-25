@@ -87,51 +87,41 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
-def filteraudio(audio_data_list, framecount, max_values):
+def amplify_audio(audio_data_np, gain_factor=1.5):  # Add gain_factor parameter
     """
-    Normalizes audio data to prevent clipping and preserve dynamic range.
-
-    Args:
-        audio_data_list: A list of floats representing the audio data.
-        framecount: An integer representing the number of frames.
-        max_values: A list to store the maximum values.
-
-    Returns:
-        None (modifies audio_data_list in place).
-    """
-
-    max_values[framecount] = 0.0
-    for i in range(framecount):
-        val = abs(audio_data_list[i])
-        if val > max_values[framecount]:
-            max_values[framecount] = val
-
-    maxmax = max(max_values[i] for i in range(framecount))
-
-    if maxmax > 0: # Check to prevent division by zero.
-        scaling_factor = 1.0 / maxmax # Calculate the scaling factor.
-        for i in range(framecount):
-            audio_data_list[i] *= scaling_factor # scale the audio.
-
-
-def amplify_audio(audio_data_np):
-    """
-    Amplifies audio data using the filteraudio function.
+    Normalizes and amplifies audio data.
 
     Args:
         audio_data_np: A numpy array of floats representing the audio data.
+        gain_factor: A float representing the gain factor (e.g., 1.5 for +3.5dB).
 
     Returns:
         A numpy array of floats representing the amplified audio data.
     """
 
-    audio_data_list = audio_data_np.tolist() # Convert numpy array to list
+    audio_data_list = audio_data_np.tolist()
     frame_size = len(audio_data_list)
-    max_values = [0.0] * (frame_size + 1) # added +1 to prevent an index error.
+    max_values = [0.0] * (frame_size + 1)
 
-    filteraudio(audio_data_list, frame_size, max_values)
-    return np.array(audio_data_list) # convert back to numpy array.
+    # Normalize
+    max_values[frame_size] = 0.0
+    for i in range(frame_size):
+        val = abs(audio_data_list[i])
+        if val > max_values[frame_size]:
+            max_values[frame_size] = val
 
+    maxmax = max(max_values[i] for i in range(frame_size))
+
+    if maxmax > 0:
+        scaling_factor = 1.0 / maxmax
+        for i in range(frame_size):
+            audio_data_list[i] *= scaling_factor
+
+    # Amplify
+    for i in range(frame_size):
+        audio_data_list[i] *= gain_factor
+
+    return np.array(audio_data_list)
 
 def convert_wav_to_mp3_pymp3(wav_data):
     """Converts WAV data to MP3 bytes using pydub."""
