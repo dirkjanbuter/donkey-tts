@@ -102,11 +102,11 @@ def filteraudio(frame, framecount, numframes, max_values):
         True (or any non-zero value, as per the original C code).
     """
 
-    max_values[framecount] = 0.0
-    for i in range(numframes):
+    max_values[framecount % numframes] = 0.0
+    for i in range(2048):
         val = abs(frame[i])
-        if val > max_values[framecount]:
-            max_values[framecount] = val
+        if val > max_values[framecount % numframes]:
+            max_values[framecount % numframes] = val
 
     if framecount <= numframes:
         maxmax = 1.0
@@ -118,7 +118,7 @@ def filteraudio(frame, framecount, numframes, max_values):
     if maxmax > 0.1:
         maxmax = 0.1
 
-    for i in range(numframes):
+    for i in range(2048):
         frame[i] *= 1.0 / maxmax
 
     return True
