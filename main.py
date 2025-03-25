@@ -87,7 +87,7 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
-def filteraudio(frame, framecount, numframes, max_values):
+def filteraudio(frame, framecount, max_values):
     """
     Python translation of the C code for audio volume normalization, with unused variables removed.
 
@@ -101,23 +101,20 @@ def filteraudio(frame, framecount, numframes, max_values):
         True (or any non-zero value, as per the original C code).
     """
 
-    max_values[framecount % numframes] = 0.0
-    for i in range(2048):
+    max_values[framecount] = 0.0
+    for i in range(framecount):
         val = abs(frame[i])
-        if val > max_values[framecount % numframes]:
-            max_values[framecount % numframes] = val
+        if val > max_values[framecount]:
+            max_values[framecount] = val
 
-    if framecount <= numframes:
-        maxmax = 1.0
-    else:
-        maxmax = max(max_values[i] for i in range(min(numframes, framecount)))
+    maxmax = max(max_values[i] for i in range(framecount))
 
     if maxmax < 0.01:
         maxmax = 0.2
     if maxmax > 0.1:
         maxmax = 0.1
 
-    for i in range(2048):
+    for i in range(framecount):
         frame[i] *= 1.0 / maxmax
 
     return True
