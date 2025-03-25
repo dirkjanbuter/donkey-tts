@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
 import librosa
-import pymp3
+import mp3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
