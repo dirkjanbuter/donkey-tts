@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
 import librosa
-import pylame
+import pymp3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,15 +88,15 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
-def convert_wav_to_mp3_lame(wav_data):
-    """Converts WAV data to MP3 bytes using LAME."""
+def convert_wav_to_mp3_pymp3(wav_data):
+    """Converts WAV data to MP3 bytes using pymp3."""
     try:
         data, samplerate = sf.read(io.BytesIO(wav_data))
-        print(f"samplerate: {samplerate}, data shape: {data.shape}") #add print statement
-        mp3_data = pylame.encode(data, samplerate, bitrate=192)
+        print(f"samplerate: {samplerate}, data shape: {data.shape}")
+        mp3_data = pymp3.encode(data.tobytes(), samplerate, bitrate=128)
         return mp3_data
     except Exception as e:
-        print(f"Error converting WAV to MP3: {e}, {traceback.format_exc()}") #add traceback info
+        print(f"Error converting WAV to MP3: {e}, {traceback.format_exc()}")
         return None
 
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=32768):
@@ -134,7 +134,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
                 wav_data = wav_buffer.read()
                 print(f"Wav data size: {len(wav_data)}") #Add print statement
 
-                mp3_data = convert_wav_to_mp3_lame(wav_data)
+                mp3_data = convert_wav_to_mp3_pymp3(wav_data)
                 if mp3_data:
                     for i in range(0, len(mp3_data), chunk_size):
                         yield mp3_data[i:i + chunk_size]
