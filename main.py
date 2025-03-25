@@ -92,10 +92,11 @@ def convert_wav_to_mp3_lame(wav_data):
     """Converts WAV data to MP3 bytes using LAME."""
     try:
         data, samplerate = sf.read(io.BytesIO(wav_data))
-        mp3_data = pylame.encode(data, samplerate, bitrate=128)
+        print(f"samplerate: {samplerate}, data shape: {data.shape}") #add print statement
+        mp3_data = pylame.encode(data, samplerate, bitrate=192)
         return mp3_data
     except Exception as e:
-        print(f"Error converting WAV to MP3: {e}")
+        print(f"Error converting WAV to MP3: {e}, {traceback.format_exc()}") #add traceback info
         return None
 
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=32768):
@@ -131,6 +132,7 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
                 sf.write(wav_buffer, combined_audio, 24000, format='wav')
                 wav_buffer.seek(0)
                 wav_data = wav_buffer.read()
+                print(f"Wav data size: {len(wav_data)}") #Add print statement
 
                 mp3_data = convert_wav_to_mp3_lame(wav_data)
                 if mp3_data:
@@ -194,8 +196,4 @@ async def text_to_speech_stream(
             async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
                 yield chunk
 
-        return StreamingResponse(generate(), media_type="audio/mpeg")
-
-    except Exception as e:
-        logger.error(f"Error processing TTS stream: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"TTS
+        return Streaming
