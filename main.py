@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
 import librosa
-import mp3
+from pydub import AudioSegment
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -147,18 +147,24 @@ def amplify_audio(audio_data, numframes=10):
     return amplified_data[:num_frames * frame_size] #return only the frames that were processed.    
 
 def convert_wav_to_mp3_pymp3(wav_data):
-    """Converts WAV data to MP3 bytes using pymp3."""
+    """Converts WAV data to MP3 bytes using pydub."""
     try:
         data, samplerate = sf.read(io.BytesIO(wav_data))
         print(f"samplerate: {samplerate}, data shape: {data.shape}")
 
-        buffer = io.BytesIO() # Create a BytesIO buffer
-        encoder = mp3.Encoder(samplerate, bitrate=192, outfile=buffer) # Initialize the encoder with the buffer
-        encoder.encode(data.tobytes()) # Encode the data
-        encoder.flush() # Flush any remaining data
+        # Convert numpy array to pydub AudioSegment
+        audio_segment = AudioSegment(
+            data.tobytes(),
+            frame_rate=samplerate,
+            sample_width=data.dtype.itemsize,
+            channels=1 if len(data.shape) == 1 else data.shape[1]
+        )
 
-        mp3_data = buffer.getvalue() # Get the MP3 data from the buffer
+        mp3_buffer = io.BytesIO()
+        audio_segment.export(mp3_buffer, format="mp3", bitrate="192k")
+        mp3_data = mp3_buffer.getvalue()
         return mp3_data
+
     except Exception as e:
         print(f"Error converting WAV to MP3: {e}, {traceback.format_exc()}")
         return None

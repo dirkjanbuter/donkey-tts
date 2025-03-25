@@ -8,4 +8,3 @@ pydub
 transformers
 uvicorn
 python-multipart
-pymp3
