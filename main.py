@@ -152,10 +152,12 @@ def convert_wav_to_mp3_pymp3(wav_data):
         data, samplerate = sf.read(io.BytesIO(wav_data))
         print(f"samplerate: {samplerate}, data shape: {data.shape}")
 
-        encoder = mp3.Encoder(samplerate, bitrate=192) #Initialize the encoder
-        mp3_data = encoder.encode(data.tobytes()) #Encode the data
-        mp3_data += encoder.flush() #Flush any remaining data in the encoder.
+        buffer = io.BytesIO() # Create a BytesIO buffer
+        encoder = mp3.Encoder(samplerate, bitrate=192, outfile=buffer) # Initialize the encoder with the buffer
+        encoder.encode(data.tobytes()) # Encode the data
+        encoder.flush() # Flush any remaining data
 
+        mp3_data = buffer.getvalue() # Get the MP3 data from the buffer
         return mp3_data
     except Exception as e:
         print(f"Error converting WAV to MP3: {e}, {traceback.format_exc()}")
