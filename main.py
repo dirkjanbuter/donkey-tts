@@ -119,7 +119,7 @@ def filteraudio(frame, framecount, max_values):
 
     return True
     
-def amplify_audio(audio_data, numframes=10):
+def amplify_audio(audio_data):
     """
     Amplifies audio data using the filteraudio function.
 
@@ -130,17 +130,12 @@ def amplify_audio(audio_data, numframes=10):
     Returns:
         A numpy array of floats representing the amplified audio data.
     """
+    
+    frame_size = len(audio_data)
+    max_values = [0.0] * num_frames
 
-    frame_size = 2048
-    num_frames = len(audio_data) // frame_size
-    max_values = [0.0] * numframes
-    amplified_data = np.copy(audio_data) #create a copy to prevent in place modification.
-
-    for framecount in range(num_frames):
-        frame = amplified_data[framecount * frame_size: (framecount + 1) * frame_size]
-        filteraudio(frame, framecount, numframes, max_values)
-        amplified_data[framecount * frame_size: (framecount + 1) * frame_size] = frame #assign the modified frame back.
-    return amplified_data[:num_frames * frame_size] #return only the frames that were processed.    
+    filteraudio(audio_data, frame_size, max_values)
+    return audio_data  
 
 def convert_wav_to_mp3_pymp3(wav_data):
     """Converts WAV data to MP3 bytes using pydub."""
