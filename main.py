@@ -22,7 +22,6 @@ from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
 import librosa
-from pydub import AudioSegment
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -152,12 +151,16 @@ def convert_wav_to_mp3_pymp3(wav_data):
         data, samplerate = sf.read(io.BytesIO(wav_data))
         print(f"samplerate: {samplerate}, data shape: {data.shape}")
 
-        # Convert numpy array to pydub AudioSegment
+        # Ensure data is in the correct format (16-bit, mono)
+        if len(data.shape) > 1:
+            data = data[:, 0]  # Take the first channel if stereo
+        data = (data * 32767).astype(np.int16) #convert to 16 bit.
+
         audio_segment = AudioSegment(
             data.tobytes(),
             frame_rate=samplerate,
-            sample_width=data.dtype.itemsize,
-            channels=1 if len(data.shape) == 1 else data.shape[1]
+            sample_width=2,  # Explicitly set sample width to 2 (16-bit)
+            channels=1
         )
 
         mp3_buffer = io.BytesIO()
