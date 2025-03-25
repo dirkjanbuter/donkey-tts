@@ -95,30 +95,30 @@ def filteraudio(frame, framecount, numframes, max_values):
     Args:
         frame: A list or numpy array of floats representing the audio frame.
         framecount: An integer representing the frame count.
-        NUMFRAMES: An integer representing the number of frames to consider for maximum.
+        numframes: An integer representing the number of frames to consider for maximum.
         max_values: a list to store the maximum values. It should be initialized outside the function.
 
     Returns:
         True (or any non-zero value, as per the original C code).
     """
 
-    max_values[framecount % numframes] = 0.0
-    for i in range(2048):
+    max_values[framecount] = 0.0
+    for i in range(numframes):
         val = abs(frame[i])
-        if val > max_values[framecount % numframes]:
-            max_values[framecount % numframes] = val
+        if val > max_values[framecount]:
+            max_values[framecount] = val
 
     if framecount <= numframes:
         maxmax = 1.0
     else:
-        maxmax = max(max_values[i] for i in range(min(NUMFRAMES, framecount)))
+        maxmax = max(max_values[i] for i in range(min(numframes, framecount)))
 
     if maxmax < 0.01:
         maxmax = 0.2
     if maxmax > 0.1:
         maxmax = 0.1
 
-    for i in range(2048):
+    for i in range(numframes):
         frame[i] *= 1.0 / maxmax
 
     return True
