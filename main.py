@@ -114,7 +114,7 @@ def filteraudio(audio_data_list, framecount, max_values):
         maxmax = 0.1
 
     for i in range(framecount):
-        audio_data_list[i] *= 1.0 / maxmax
+        audio_data_list[i] *= 0.9 / maxmax
 
 
 def amplify_audio(audio_data_np):
