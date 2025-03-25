@@ -87,18 +87,7 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
-def amplify_audio(audio_data_np, gain_factor=1.5):  # Add gain_factor parameter
-    """
-    Normalizes and amplifies audio data.
-
-    Args:
-        audio_data_np: A numpy array of floats representing the audio data.
-        gain_factor: A float representing the gain factor (e.g., 1.5 for +3.5dB).
-
-    Returns:
-        A numpy array of floats representing the amplified audio data.
-    """
-
+def amplify_audio(audio_data_np, gain_factor=1.5):
     audio_data_list = audio_data_np.tolist()
     frame_size = len(audio_data_list)
     max_values = [0.0] * (frame_size + 1)
@@ -117,11 +106,16 @@ def amplify_audio(audio_data_np, gain_factor=1.5):  # Add gain_factor parameter
         for i in range(frame_size):
             audio_data_list[i] *= scaling_factor
 
-    # Amplify
+    # Amplify and clip
     for i in range(frame_size):
         audio_data_list[i] *= gain_factor
+        if audio_data_list[i] > 1.0:
+            audio_data_list[i] = 1.0
+        elif audio_data_list[i] < -1.0:
+            audio_data_list[i] = -1.0
 
     return np.array(audio_data_list)
+
 
 def convert_wav_to_mp3_pymp3(wav_data):
     """Converts WAV data to MP3 bytes using pydub."""
