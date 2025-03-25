@@ -196,4 +196,8 @@ async def text_to_speech_stream(
             async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
                 yield chunk
 
-        return Streaming
+        return StreamingResponse(generate(), media_type="audio/mpeg")
+
+    except Exception as e:
+        logger.error(f"Error processing TTS stream: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"TTS stream generation failed: {str(e)}")
