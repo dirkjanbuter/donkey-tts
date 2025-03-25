@@ -1,4 +1,4 @@
-TTS==0.22.0
+﻿TTS==0.22.0
 numpy==1.22.0
 fastapi
 pydantic
@@ -8,3 +8,4 @@ pydub
 transformers
 uvicorn
 python-multipart
+pylame
