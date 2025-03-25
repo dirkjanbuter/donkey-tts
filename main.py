@@ -88,6 +88,64 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
+def filteraudio(frame, framecount, numframes, max_values):
+    """
+    Python translation of the C code for audio volume normalization, with unused variables removed.
+
+    Args:
+        frame: A list or numpy array of floats representing the audio frame.
+        framecount: An integer representing the frame count.
+        NUMFRAMES: An integer representing the number of frames to consider for maximum.
+        max_values: a list to store the maximum values. It should be initialized outside the function.
+
+    Returns:
+        True (or any non-zero value, as per the original C code).
+    """
+
+    max_values[framecount % numframes] = 0.0
+    for i in range(2048):
+        val = abs(frame[i])
+        if val > max_values[framecount % numframes]:
+            max_values[framecount % numframes] = val
+
+    if framecount <= numframes:
+        maxmax = 1.0
+    else:
+        maxmax = max(max_values[i] for i in range(min(NUMFRAMES, framecount)))
+
+    if maxmax < 0.01:
+        maxmax = 0.2
+    if maxmax > 0.1:
+        maxmax = 0.1
+
+    for i in range(2048):
+        frame[i] *= 1.0 / maxmax
+
+    return True
+    
+def amplify_audio(audio_data, numframes=10):
+    """
+    Amplifies audio data using the filteraudio function.
+
+    Args:
+        audio_data: A numpy array of floats representing the audio data.
+        numframes: The number of frames to consider for maximum.
+
+    Returns:
+        A numpy array of floats representing the amplified audio data.
+    """
+
+    frame_size = 2048
+    num_frames = len(audio_data) // frame_size
+    max_values = [0.0] * numframes
+    amplified_data = np.copy(audio_data) #create a copy to prevent in place modification.
+
+    for framecount in range(num_frames):
+        frame = amplified_data[framecount * frame_size: (framecount + 1) * frame_size]
+        filteraudio(frame, framecount, numframes, max_values)
+        amplified_data[framecount * frame_size: (framecount + 1) * frame_size] = frame #assign the modified frame back.
+    return amplified_data[:num_frames * frame_size] #return only the frames that were processed.    
+
 def convert_wav_to_mp3_pymp3(wav_data):
     """Converts WAV data to MP3 bytes using pymp3."""
     try:
@@ -126,6 +184,10 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
 
         if audio_segments:
             combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
+            
+            # Amplify the audio here
+            combined_audio = amplify_audio(combined_audio)
+            
             combined_audio = (combined_audio * 32767).astype(np.int16)
 
             with io.BytesIO() as wav_buffer:
