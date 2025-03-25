@@ -89,12 +89,12 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
 
 def filteraudio(audio_data_list, framecount, max_values):
     """
-    Python translation of the C code for audio volume normalization, with unused variables removed.
+    Normalizes audio data to prevent clipping and preserve dynamic range.
 
     Args:
         audio_data_list: A list of floats representing the audio data.
-        framecount: An integer representing the number of frames to consider for maximum.
-        max_values: A list to store the maximum values. It should be initialized outside the function.
+        framecount: An integer representing the number of frames.
+        max_values: A list to store the maximum values.
 
     Returns:
         None (modifies audio_data_list in place).
@@ -108,13 +108,10 @@ def filteraudio(audio_data_list, framecount, max_values):
 
     maxmax = max(max_values[i] for i in range(framecount))
 
-    if maxmax < 0.01:
-        maxmax = 0.2
-    if maxmax > 0.1:
-        maxmax = 0.1
-
-    for i in range(framecount):
-        audio_data_list[i] *= 0.9 / maxmax
+    if maxmax > 0: # Check to prevent division by zero.
+        scaling_factor = 1.0 / maxmax # Calculate the scaling factor.
+        for i in range(framecount):
+            audio_data_list[i] *= scaling_factor # scale the audio.
 
 
 def amplify_audio(audio_data_np):
