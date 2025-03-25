@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 import wave
 from transformers import AutoTokenizer
 import librosa
-import pylame
+import subprocess
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,16 +88,6 @@ def chunk_text(text, language, max_tokens=250, tokenizer=None):
         chunks.append(tokenizer.decode(chunk_tokens))
     return chunks
 
-def convert_wav_to_mp3_lame(wav_data):
-    """Converts WAV data to MP3 bytes using LAME."""
-    try:
-        data, samplerate = sf.read(io.BytesIO(wav_data))
-        mp3_data = pylame.encode(data, samplerate, bitrate=128)
-        return mp3_data
-    except Exception as e:
-        print(f"Error converting WAV to MP3: {e}")
-        return None
-
 async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None, chunk_size=32768):
     audio_segments = []
     paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
@@ -130,12 +120,11 @@ async def generate_audio_stream(text, language, speaker_wav_path, tokenizer=None
             with io.BytesIO() as wav_buffer:
                 sf.write(wav_buffer, combined_audio, 24000, format='wav')
                 wav_buffer.seek(0)
-                wav_data = wav_buffer.read()
+                audio_segment = AudioSegment.from_wav(wav_buffer)
 
-                mp3_data = convert_wav_to_mp3_lame(wav_data)
-                if mp3_data:
-                    for i in range(0, len(mp3_data), chunk_size):
-                        yield mp3_data[i:i + chunk_size]
+                mp3_data = audio_segment.export(format="mp3", bitrate="128k", parameters=["-ar", "24000"]).read()
+                for i in range(0, len(mp3_data), chunk_size):
+                    yield mp3_data[i:i + chunk_size]
 
             audio_segments = [] # reset audio_segments for next paragraph
 
@@ -198,4 +187,4 @@ async def text_to_speech_stream(
 
     except Exception as e:
         logger.error(f"Error processing TTS stream: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"TTS
+        raise HTTPException(status_code=500, detail=f"TTS stream generation failed: {str(e)}")
