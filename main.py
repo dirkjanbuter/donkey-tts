@@ -126,7 +126,7 @@ def convert_wav_to_mp3_pymp3(wav_data):
         # Ensure data is in the correct format (16-bit, mono)
         if len(data.shape) > 1:
             data = data[:, 0]  # Take the first channel if stereo
-        data = (data * 32767).astype(np.int16) #convert to 16 bit.
+        data = (data * 32767).astype(np.int16)
 
         audio_segment = AudioSegment(
             data.tobytes(),
@@ -136,7 +136,7 @@ def convert_wav_to_mp3_pymp3(wav_data):
         )
 
         mp3_buffer = io.BytesIO()
-        audio_segment.export(mp3_buffer, format="mp3", bitrate="192k")
+        audio_segment.export(mp3_buffer, format="mp3", bitrate="64k") #changed to 64k.
         mp3_data = mp3_buffer.getvalue()
         return mp3_data
 
@@ -241,7 +241,6 @@ async def text_to_speech_stream(
             raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found.")
 
         async def generate():
-            yield b'\xFF\xFB\x90\x04\x00\x00\x00\x00\x00' # MP3 header
             async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
                 yield chunk
 
@@ -250,3 +249,4 @@ async def text_to_speech_stream(
     except Exception as e:
         logger.error(f"Error processing TTS stream: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"TTS stream generation failed: {str(e)}")
+
