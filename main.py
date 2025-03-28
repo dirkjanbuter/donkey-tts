@@ -7,6 +7,7 @@ from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.models.xtts import XttsArgs
 import torch
 import io
+import subprocess
 import soundfile as sf
 import os
 import traceback
