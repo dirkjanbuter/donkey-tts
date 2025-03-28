@@ -241,12 +241,60 @@ async def text_to_speech_stream(
             raise HTTPException(status_code=404, detail=f"Speaker ID '{speaker_id}' not found.")
 
         async def generate():
-            async for chunk in generate_audio_stream(text, language, speaker_wav_path, tokenizer=tokenizer):
-                yield chunk
+            audio_segments = []
+            paragraphs_and_sentences = split_text_into_paragraphs_and_sentences(text)
+
+            async def synthesize_sentence(sentence):
+                try:
+                    outputs = model.synthesize(
+                        sentence,
+                        config,
+                        speaker_wav=speaker_wav_path,
+                        language=language,
+                    )
+                    return outputs["wav"]
+                except Exception as e:
+                    logger.error(f"Error processing audio chunk: {e}", exc_info=True)
+                    return None
+
+            for sentences in paragraphs_and_sentences:
+                tasks = [synthesize_sentence(sentence) for sentence in sentences]
+                results = await asyncio.gather(*tasks)
+
+                for audio_data in results:
+                    if audio_data is not None:
+                        audio_segments.append(audio_data)
+
+                if audio_segments:
+                    combined_audio = adaptive_overlap_add(audio_segments, min_overlap_samples=150, max_overlap_samples=300)
+                    combined_audio = amplify_audio(combined_audio)
+                    combined_audio = (combined_audio * 32767).astype(np.int16)
+
+                    with io.BytesIO() as wav_buffer:
+                        sf.write(wav_buffer, combined_audio, 24000, format='wav')
+                        wav_buffer.seek(0)
+                        wav_data = wav_buffer.read()
+
+                    # Convert WAV to MP3 using ffmpeg in memory
+                    process = subprocess.Popen(
+                        ["ffmpeg", "-f", "wav", "-i", "-", "-b:a", "64k", "-f", "mp3", "-"],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    mp3_data, stderr = process.communicate(input=wav_data)
+
+                    # Stream MP3 in chunks
+                    chunk_size = 4096
+                    for i in range(0, len(mp3_data), chunk_size):
+                        yield mp3_data[i:i + chunk_size]
+
+                audio_segments = []
 
         return StreamingResponse(generate(), media_type="audio/mpeg")
 
     except Exception as e:
         logger.error(f"Error processing TTS stream: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"TTS stream generation failed: {str(e)}")
+
 
